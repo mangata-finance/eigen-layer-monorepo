@@ -8,7 +8,7 @@ import (
 
 	sdkutils "github.com/Layr-Labs/eigensdk-go/utils"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/config"
-	"github.com/Layr-Labs/incredible-squaring-avs/operator"
+	"github.com/Layr-Labs/incredible-squaring-avs/operator-go"
 	"github.com/Layr-Labs/incredible-squaring-avs/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/urfave/cli"

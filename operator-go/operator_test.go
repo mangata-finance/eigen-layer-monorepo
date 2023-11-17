@@ -18,7 +18,7 @@ import (
 	aggtypes "github.com/Layr-Labs/incredible-squaring-avs/aggregator/types"
 	cstaskmanager "github.com/Layr-Labs/incredible-squaring-avs/contracts/bindings/IncredibleSquaringTaskManager"
 	chainiomocks "github.com/Layr-Labs/incredible-squaring-avs/core/chainio/mocks"
-	operatormocks "github.com/Layr-Labs/incredible-squaring-avs/operator/mocks"
+	operatormocks "github.com/Layr-Labs/incredible-squaring-avs/operator-go/mocks"
 )
 
 func TestOperator(t *testing.T) {

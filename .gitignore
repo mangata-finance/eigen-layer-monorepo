@@ -23,3 +23,6 @@ coverage.html
 
 # log files
 logs.txt
+
+# Rust build target
+target/

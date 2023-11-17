@@ -12,6 +12,7 @@ CHAINID=31337
 # check in contracts/script/output/${CHAINID}/credible_squaring_avs_deployment_output.json
 STRATEGY_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F
 DEPLOYMENT_FILES_DIR=contracts/script/output/${CHAINID}
+CONTRACTS_REGEX="IncredibleSquaringServiceManager|IncredibleSquaringTaskManager"
 
 -----------------------------: ## 
 
@@ -31,13 +32,16 @@ deploy-all-to-anvil-and-save-state: deploy-eigenlayer-contracts-to-anvil-and-sav
 start-anvil-chain-with-el-and-avs-deployed: ## starts anvil from a saved state file (with el and avs contracts deployed)
 	anvil --load-state tests/integration/avs-and-eigenlayer-deployed-anvil-state.json
 
-bindings: ## generates contract bindings
+bindings-go: ## generates contract bindings
 	cd contracts && ./generate-go-bindings.sh
+
+bindings:
+	forge bind --bindings-path ./operator/bindings --root ./contracts --crate-name bindings --select ${CONTRACTS_REGEX} --overwrite
 
 ___DOCKER___: ## 
 docker-build-and-publish-images: ## builds and publishes operator and aggregator docker images using Ko
 	KO_DOCKER_REPO=ghcr.io/layr-labs/incredible-squaring ko build aggregator/cmd/main.go --preserve-import-paths
-	KO_DOCKER_REPO=ghcr.io/layr-labs/incredible-squaring ko build operator/cmd/main.go --preserve-import-paths
+	KO_DOCKER_REPO=ghcr.io/layr-labs/incredible-squaring ko build operator-go/cmd/main.go --preserve-import-paths
 docker-start-everything: docker-build-and-publish-images ## starts aggregator and operator docker containers
 	docker compose pull && docker compose up
 
@@ -78,7 +82,7 @@ start-aggregator: ##
 		2>&1 | zap-pretty
 
 start-operator: ## 
-	go run operator/cmd/main.go --config config-files/operator.anvil.yaml \
+	go run operator-go/cmd/main.go --config config-files/operator.anvil.yaml \
 		2>&1 | zap-pretty
 
 start-challenger: ## 

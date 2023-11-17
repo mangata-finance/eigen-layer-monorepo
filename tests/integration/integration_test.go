@@ -16,7 +16,7 @@ import (
 	"github.com/Layr-Labs/incredible-squaring-avs/aggregator"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/chainio"
 	"github.com/Layr-Labs/incredible-squaring-avs/core/config"
-	"github.com/Layr-Labs/incredible-squaring-avs/operator"
+	"github.com/Layr-Labs/incredible-squaring-avs/operator-go"
 	"github.com/Layr-Labs/incredible-squaring-avs/types"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

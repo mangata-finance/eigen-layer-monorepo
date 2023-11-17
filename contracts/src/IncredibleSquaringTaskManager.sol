@@ -9,7 +9,7 @@ import {BLSPubkeyRegistry} from "@eigenlayer-middleware/src/BLSPubkeyRegistry.so
 import {BLSRegistryCoordinatorWithIndices} from "@eigenlayer-middleware/src/BLSRegistryCoordinatorWithIndices.sol";
 import {BLSSignatureChecker, IBLSRegistryCoordinatorWithIndices} from "@eigenlayer-middleware/src/BLSSignatureChecker.sol";
 import {BLSOperatorStateRetriever} from "@eigenlayer-middleware/src/BLSOperatorStateRetriever.sol";
-import "@eigenlayer/contracts/libraries/BN254.sol";
+import {BN254} from "@eigenlayer-middleware/src/ServiceManagerBase.sol";
 import "./IIncredibleSquaringTaskManager.sol";
 
 contract IncredibleSquaringTaskManager is
