@@ -40,4 +40,4 @@ enable_node_api: true
 
 register_operator_on_startup: false
 
-substrate_rpc_url: wss://kusama-archive.mangata.online
+substrate_rpc_url: wss://kusama-archive.mangata.online:443

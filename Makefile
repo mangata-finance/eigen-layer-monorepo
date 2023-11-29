@@ -35,7 +35,7 @@ start-anvil-chain-with-el-and-avs-deployed: ## starts anvil from a saved state f
 bindings-go: ## generates contract bindings
 	cd contracts && ./generate-go-bindings.sh
 
-bindings:
+bindings-rs:
 	forge bind --bindings-path ./operator/bindings --root ./contracts --crate-name bindings --select ${CONTRACTS_REGEX} --overwrite
 
 ___DOCKER___: ## 
