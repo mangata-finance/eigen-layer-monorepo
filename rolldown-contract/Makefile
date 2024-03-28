@@ -1,12 +1,12 @@
-PRIV=${PRIV:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
-ETH_URL=${ETH_URL:-http://localhost:8545}
+PRIV?=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+ETH_URL?=http://localhost:8545
 TOKEN_CONTRACT_ADDRESS=$(shell cat out/addresses.json | jq '.tokenAddress')
 ROLLDOWN_CONTRACT_ADDRESS=$(shell cat out/addresses.json | jq '.rolldownContractAddress')
 
 deploy:
-	forge script script/rolldown.s.sol:MyScript --fork-url ${ETH_URL} --broadcast -vvvv --private-key ${PRIV}
+	forge script script/rolldown.s.sol:MyScript --fork-url $(ETH_URL) --broadcast -vvvv --private-key ${PRIV}
 
-deposit: deploy
+deposit:
 	@echo TOKEN_CONTRACT_ADDRESS=${TOKEN_CONTRACT_ADDRESS}
 	@echo ROLLDOWN_CONTRACT_ADDRESS=${ROLLDOWN_CONTRACT_ADDRESS}
 
