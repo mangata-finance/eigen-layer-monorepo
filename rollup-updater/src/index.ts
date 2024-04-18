@@ -63,6 +63,8 @@ async function sendUpdateToL1(
 	walletClient: any,
 	abi: any,
 	blockHash: any,
+	publicClient: any,
+	account: any
 ) {
 	console.log(`HASH ${blockHash} `);
 	const pendingUpdates = await api.rpc.rolldown.pending_updates(blockHash);
@@ -98,15 +100,23 @@ async function sendUpdateToL1(
 		}
 
 		if (reqCount > 0) {
-			const storageHash = await walletClient.writeContract({
+			const gasPrice = await publicClient.getGasPrice()
+			const gas = await publicClient.estimateContractGas({
+				address: mangataContractAddress,
+				abi: abi,
+				functionName: "update_l1_from_l2",
+				args: l2Update as any,
+				account,
+			})
+			return await walletClient.writeContract({
 				chain: getChain(),
 				abi: abi,
 				address: mangataContractAddress,
 				functionName: "update_l1_from_l2",
 				args: l2Update as any,
-				gas: 999999n,
+				gas: BigInt(gasPrice) * BigInt(gas),
+
 			});
-			return storageHash;
 		}
 
 		console.log("no updates available");
