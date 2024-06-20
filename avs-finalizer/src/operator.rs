@@ -7,7 +7,9 @@ use crate::rpc::Rpc;
 
 use bindings::{
     finalizer_task_manager::{NewTaskCreatedFilter, Operator as TMOperator},
-    shared_types::{G1Point, G2Point, OperatorStateInfo, Task, TaskResponse, QuorumsAdded, QuorumsStakeUpdate, QuorumsApkUpdate, OperatorsAdded, OperatorsQuorumCountUpdate, OperatorsStakeUpdate},
+    shared_types::{G1Point, G2Point, Task, TaskResponse,
+        //  OperatorStateInfo, QuorumsAdded, QuorumsStakeUpdate, QuorumsApkUpdate, OperatorsAdded, OperatorsQuorumCountUpdate, OperatorsStakeUpdate
+        },
 };
 use ethers::providers::{Middleware, PendingTransaction, SubscriptionStream};
 use ethers::{
@@ -124,7 +126,7 @@ impl Operator {
                         let payload = TaskResponse {
                             reference_task_index: event.task_index,
                             reference_task: event.task.clone(),
-                            operators_state_info: operators_state_info.into(),
+                            // operators_state_info: operators_state_info.into(),
                             block_hash: proofs.0.as_fixed_bytes().to_owned(),
                             storage_proof_hash: proofs.1.as_fixed_bytes().to_owned(),
                             pending_state_hash: proofs.2.as_fixed_bytes().to_owned(),
@@ -175,349 +177,356 @@ impl Operator {
     pub(crate) async fn get_operators_state_info(
         self: Arc<Self>,
         task: Task,
-    ) -> eyre::Result<OperatorStateInfo> {
-
-        // return Ok(OperatorStateInfo {
-        //     operators_state_changed: true,
-        //     operators_state_provided: false,
-        //     quorums_removed: vec![],
-        //     quorums_added: vec![],
-        //     quorums_stake_update: vec![],
-        //     quorums_apk_update: vec![],
-        //     operators_removed: vec![],
-        //     operators_added: vec![],
-        //     operators_stake_update: vec![],
-        //     operators_quorum_count_update: vec![],
-        // });
-
-        // We assume that the quorumNumbers are alteast unique even if not sorted
-        let mut old_quorum_numbers = task.last_completed_task_quorum_numbers.into_iter().collect::<Vec<u8>>();
-        let mut new_quorum_numbers = task.quorum_numbers.into_iter().collect::<Vec<u8>>();
-        old_quorum_numbers.sort();
-        new_quorum_numbers.sort();
-
-        let old_task_block = task.last_completed_task_created_block;
-        let new_task_block = task.task_created_block;
-
-        let registry_coordinator_address = &self
-        .avs_contracts
-        .registry_coordinator_address;
-        let registry_coordinator = &self
-        .avs_contracts
-        .registry;
-        let stake_registry = &self
-        .avs_contracts
-        .stake_registry;
-        let bls_apk_registry = &self
-        .avs_contracts
-        .bls_apk_registry;
-        let task_manager = &self
-        .avs_contracts
-        .task_manager;
-
-        let mut maybe_i = old_quorum_numbers.iter().peekable();
-        let mut maybe_j = new_quorum_numbers.iter().peekable();
-        
-        let mut quorums_common: Vec<u8> = Vec::new();
-        let mut quorums_removed: Vec<u8> = Vec::new();
-        let mut quorums_added: Vec<QuorumsAdded> = Vec::new();
-        let mut quorums_apk_update: Vec<QuorumsApkUpdate> = Vec::new();
-        let mut quorums_stake_update: Vec<QuorumsStakeUpdate> = Vec::new();
-        
-        loop {
-            match (maybe_i.peek(), maybe_j.peek()){
-                (Some(&&i), Some(&&j)) if i == j => {
-                    // handle potential update
-                    let old_quorum_apk = bls_apk_registry.get_apk(i).block::<u64>(u64::from(old_task_block)).await?;
-                    let old_quorum_stake = stake_registry.get_current_total_stake(i).block(u64::from(old_task_block)).await?;
-
-                    let new_quorum_apk = bls_apk_registry.get_apk(i).block(u64::from(new_task_block)).await?;
-                    let new_quorum_stake = stake_registry.get_current_total_stake(i).block(u64::from(new_task_block)).await?;
-
-                    if old_quorum_apk != new_quorum_apk {
-                        quorums_apk_update.push(QuorumsApkUpdate{
-                            quorum_number: i,
-                            quorum_apk: new_quorum_apk
-                        });
-                    }
-                    if old_quorum_stake != new_quorum_stake{
-                        quorums_stake_update.push(QuorumsStakeUpdate{
-                            quorum_number: i,
-                            quorum_stake: new_quorum_stake,
-                        });
-                    }
-                    
-                    quorums_common.push(i);
-
-                    maybe_i.next(); maybe_j.next();
-                },
-                (Some(&&i), Some(&&j)) if i < j => {
-                    // handle quorum number removed
-                    quorums_removed.push(i);
-                    // quorums_apk_update.push(QuorumsApkUpdate{
-                    //     quorum_number: i,
-                    //     quorum_apk: Default::default(),
-                    // });
-                    // quorums_stake_update.push(QuorumsStakeUpdate{
-                    //     quorum_number: i,
-                    //     quorum_stake: Default::default(),
-                    //     });
-                    maybe_i.next();
-                },
-                (Some(&&i), Some(&&j)) if i > j => {
-                    // handle quorum number added
-                    quorums_added.push(QuorumsAdded{
-                        quorum_number: j,
-                        quorum_stake: stake_registry.get_current_total_stake(j).block(u64::from(new_task_block)).await?,
-                        quorum_apk: bls_apk_registry.get_apk(j).block(u64::from(new_task_block)).await?,
-                    });
-
-                    maybe_j.next();
-                },
-                (Some(&&i), None) => {
-                    // handle quorum number removed
-                    quorums_removed.push(i);
-                    // quorums_apk_update.push(QuorumsApkUpdate{
-                    //     quorum_number: i,
-                    //     quorum_apk: Default::default(),
-                    // });
-                    // quorums_stake_update.push(QuorumsStakeUpdate{
-                    //     quorum_number: i,
-                    //     quorum_stake: Default::default(),
-                    //     });
-                    maybe_i.next();
-                },
-                (None, Some(&&j)) => {
-                    // handle quorum number added
-                    quorums_added.push(
-                        QuorumsAdded{
-                            quorum_number: j,
-                            quorum_stake: stake_registry.get_current_total_stake(j).block(u64::from(new_task_block)).await?,
-                            quorum_apk: bls_apk_registry.get_apk(j).block(u64::from(new_task_block)).await?,
-                        }
-                    );
-                    maybe_j.next();
-                },
-                (None, None) => {
-                    // handle quorum number added
-                    break;
-                },
-                _ => unreachable!()
-
-            }
-
-        }
-
-
-
-        let old_operators_stake = task_manager
-            .get_operator_state(
-                *registry_coordinator_address,
-                old_quorum_numbers.clone().into(),
-                old_task_block,
-            ).await?;
-        let new_operators_stake = task_manager
-            .get_operator_state(
-                *registry_coordinator_address,
-                new_quorum_numbers.clone().into(),
-                new_task_block,
-            ).await?;
-
-        let mut old_operators_avs_state = self.get_operators_avs_state_at_block(old_operators_stake, old_quorum_numbers.clone().into()).await.values().cloned().collect::<Vec<_>>();
-        let mut new_operators_avs_state = self.get_operators_avs_state_at_block(new_operators_stake, new_quorum_numbers.clone().into()).await.values().cloned().collect::<Vec<_>>();
-        
-        old_operators_avs_state.sort_by_key(|v| v.operator_id);
-        new_operators_avs_state.sort_by_key(|v| v.operator_id);
-
-        let mut maybe_i = old_operators_avs_state.iter().peekable();
-        let mut maybe_j = new_operators_avs_state.iter().peekable();
-
-        let mut operators_removed: Vec<[u8; 32]> = Vec::new();
-        let mut operators_added: Vec<OperatorsAdded> = Vec::new(); // Needs to be sorted
-        let mut operators_quorum_count_update: Vec<OperatorsQuorumCountUpdate> = Vec::new();
-        let mut operators_stake_update: Vec<OperatorsStakeUpdate> = Vec::new();
-
-        loop {
-            match (maybe_i.peek(), maybe_j.peek()){
-                (Some(&&ref i), Some(&&ref j)) if i.operator_id == j.operator_id => {
-                    // handle potential update
-
-                    if i.stake_per_quorum.len() != j.stake_per_quorum.len(){
-                        operators_quorum_count_update.push(OperatorsQuorumCountUpdate{
-                            operator_id: j.operator_id,
-                            quorum_count: j.stake_per_quorum.len().try_into()?,
-                        });
-                    }
-                    let mut operator_stake_update = OperatorsStakeUpdate{
-                        operator_id: j.operator_id,
-                        quorum_for_stakes: Default::default(),
-                        quorum_stakes: Default::default(),
-                    };
-                    for qn in quorums_removed.iter() {
-                        operator_stake_update.quorum_for_stakes.push(*qn);
-                        operator_stake_update.quorum_stakes.push(Default::default());
-                    }
-                    for qn in quorums_added.iter().map(|x| x.quorum_number) {
-                        operator_stake_update.quorum_for_stakes.push(qn);
-                        let stake = j.stake_per_quorum.get(&qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
-                        operator_stake_update.quorum_stakes.push(stake)
-                    }
-                    for qn in quorums_common.iter(){
-                        let stake_old = i.stake_per_quorum.get(&qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
-                        let stake_new = j.stake_per_quorum.get(&qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
-                        if stake_old != stake_new {
-                            operator_stake_update.quorum_for_stakes.push(*qn);
-                            operator_stake_update.quorum_stakes.push(stake_new)
-                        }
-                    }
-                    if !operator_stake_update.quorum_for_stakes.is_empty(){
-                    operators_stake_update.push(operator_stake_update);}
-
-                    maybe_i.next(); maybe_j.next();
-                },
-                (Some(&&ref i), Some(&&ref j)) if i.operator_id < j.operator_id => {
-                    // handle operator removed
-                    operators_removed.push(i.operator_id);
-                    maybe_i.next();
-                },
-                (Some(&&ref i), Some(&&ref j)) if i.operator_id > j.operator_id => {
-                    // handle quorum number added
-
-                    let mut operator_added = OperatorsAdded{
-                        operator_id: j.operator_id,
-                        quorum_for_stakes: Default::default(),
-                        quorum_stakes: Default::default(),
-                        quorum_count: j.stake_per_quorum.len().try_into()?,
-                    };
-
-                    for qn in j.stake_per_quorum.keys(){
-                        operator_added.quorum_for_stakes.push(*qn);
-                        let stake = j.stake_per_quorum.get(qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
-                        operator_added.quorum_stakes.push(stake)
-                    }
-
-                    operators_added.push(operator_added);
-
-                    maybe_j.next();
-                },
-                (Some(&&ref i), None) => {
-                    // handle quorum number removed
-                    operators_removed.push(i.operator_id);
-                    maybe_i.next();
-                },
-                (None, Some(&&ref j)) => {
-                    // handle operator added
-                    
-                    let mut operator_added = OperatorsAdded{
-                        operator_id: j.operator_id,
-                        quorum_for_stakes: Default::default(),
-                        quorum_stakes: Default::default(),
-                        quorum_count: j.stake_per_quorum.len().try_into()?,
-                    };
-
-                    for qn in j.stake_per_quorum.keys(){
-                        operator_added.quorum_for_stakes.push(*qn);
-                        let stake = j.stake_per_quorum.get(qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
-                        operator_added.quorum_stakes.push(stake)
-                    }
-
-                    operators_added.push(operator_added);
-                    maybe_j.next();
-                },
-                (None, None) => {
-                    // handle quorum number added
-                    break;
-                },
-                _ => unreachable!()
-            }
-
-        }
-
-        // quorums removed
-        // A vec of qourums removed
-        // Removes the corresponding quorum to apk map entry
-        // AND Removes the corresponding quorum to stakes map entry
-        // Note whenever a quorum is removed, all the operator's stake map entry for that quorum is also removed
-        // Note whenever a quorum is removed, all the operator's quorumCount map entry is also updated
-        // Note whenever a quorum is removed and an operator that was in it isn't is other quorums anymore either
-        // then such operators are also removed from state
-
-        // quorums added
-        // A Vec<(, )> of quorums added and their quorum apks
-
-        // The one above and the one below can be merged
-        // Nah... Let em be
-
-        // quorums modified
-        // A Vec<(, )> of quorums added and their changed quorums apks
-
-        // OperatorIdPubKey can be updated by the aggregator
-        // The aggregator just needs to provide the g1PubKeys
-        // The corrseponding entries will be checked against the sorted list of "Added OperatorIds" provided from here
-
-        // Provide a sorted list of new operatorIds (to the state)
-        // Mentioed below
-
-        // we have QuorumToStakes update - club with QuorumApks updates above
-
-        // From operator state
-        // We need the operators that have left the state
-        // We need the operators that have been added to the state in sorted order
-        // We need the operators whose stakes or quorum count have been modified
-
-
-        // This contains all operators that must be removed from associated quorum storage
-        // If a quorum is removed
-
-        let operators_state_changed = 
-        !quorums_removed.is_empty() || !quorums_added.is_empty() || !quorums_apk_update.is_empty() || !quorums_stake_update.is_empty() || !operators_removed.is_empty() || !operators_added.is_empty() || !operators_stake_update.is_empty() || !operators_quorum_count_update.is_empty() || (task.quorum_threshold_percentage != task.last_completed_task_quorum_threshold_percentage);
-
-        let operator_state_info = OperatorStateInfo {
-            operators_state_changed: operators_state_changed,
-            operators_state_provided: true,
-            quorums_removed: quorums_removed,
-            quorums_added: quorums_added,
-            quorums_stake_update: quorums_stake_update,
-            quorums_apk_update: quorums_apk_update,
-            operators_removed: operators_removed,
-            operators_added: operators_added,
-            operators_stake_update: operators_stake_update,
-            operators_quorum_count_update: operators_quorum_count_update,
-        };
-        println!("{:?}", operator_state_info);
-        Ok(operator_state_info)
-        // Ok(Default::default())
+    ) -> eyre::Result<()> {
+        Ok(())
     }
 
+    // pub(crate) async fn get_operators_state_info(
+    //     self: Arc<Self>,
+    //     task: Task,
+    // ) -> eyre::Result<OperatorStateInfo> {
 
-    pub async fn get_operators_avs_state_at_block(
-        &self,
-        operators_stakes_in_quorums: Vec<Vec<TMOperator>>,
-        quorum_nums: Bytes,
-    ) -> HashMap<H256, CustomOperatorAvsState> {
-        let mut operators_avs_state: HashMap<H256, CustomOperatorAvsState> = HashMap::new();
+    //     // return Ok(OperatorStateInfo {
+    //     //     operators_state_changed: true,
+    //     //     operators_state_provided: false,
+    //     //     quorums_removed: vec![],
+    //     //     quorums_added: vec![],
+    //     //     quorums_stake_update: vec![],
+    //     //     quorums_apk_update: vec![],
+    //     //     operators_removed: vec![],
+    //     //     operators_added: vec![],
+    //     //     operators_stake_update: vec![],
+    //     //     operators_quorum_count_update: vec![],
+    //     // });
 
-        if operators_stakes_in_quorums.len() != quorum_nums.len() {
-            // throw error
-        }
+    //     // We assume that the quorumNumbers are alteast unique even if not sorted
+    //     let mut old_quorum_numbers = task.last_completed_task_quorum_numbers.into_iter().collect::<Vec<u8>>();
+    //     let mut new_quorum_numbers = task.quorum_numbers.into_iter().collect::<Vec<u8>>();
+    //     old_quorum_numbers.sort();
+    //     new_quorum_numbers.sort();
 
-        for (quorum_id, quorum_num) in quorum_nums.iter().enumerate() {
-            for operator in &operators_stakes_in_quorums[quorum_id] {
-                let stake_per_quorum = HashMap::new();
-                let avs_state = operators_avs_state
-                    .entry(H256::from(operator.operator_id))
-                    .or_insert_with(|| CustomOperatorAvsState {
-                        operator_id: operator.operator_id,
-                        stake_per_quorum: stake_per_quorum,
-                    });
-                avs_state
-                    .stake_per_quorum
-                    .insert(*quorum_num, u128::from(operator.stake));
-            }
-        }
+    //     let old_task_block = task.last_completed_task_created_block;
+    //     let new_task_block = task.task_created_block;
 
-        return operators_avs_state;
-    }
+    //     let registry_coordinator_address = &self
+    //     .avs_contracts
+    //     .registry_coordinator_address;
+    //     let registry_coordinator = &self
+    //     .avs_contracts
+    //     .registry;
+    //     let stake_registry = &self
+    //     .avs_contracts
+    //     .stake_registry;
+    //     let bls_apk_registry = &self
+    //     .avs_contracts
+    //     .bls_apk_registry;
+    //     let task_manager = &self
+    //     .avs_contracts
+    //     .task_manager;
+
+    //     let mut maybe_i = old_quorum_numbers.iter().peekable();
+    //     let mut maybe_j = new_quorum_numbers.iter().peekable();
+        
+    //     let mut quorums_common: Vec<u8> = Vec::new();
+    //     let mut quorums_removed: Vec<u8> = Vec::new();
+    //     let mut quorums_added: Vec<QuorumsAdded> = Vec::new();
+    //     let mut quorums_apk_update: Vec<QuorumsApkUpdate> = Vec::new();
+    //     let mut quorums_stake_update: Vec<QuorumsStakeUpdate> = Vec::new();
+        
+    //     loop {
+    //         match (maybe_i.peek(), maybe_j.peek()){
+    //             (Some(&&i), Some(&&j)) if i == j => {
+    //                 // handle potential update
+    //                 let old_quorum_apk = bls_apk_registry.get_apk(i).block::<u64>(u64::from(old_task_block)).await?;
+    //                 let old_quorum_stake = stake_registry.get_current_total_stake(i).block(u64::from(old_task_block)).await?;
+
+    //                 let new_quorum_apk = bls_apk_registry.get_apk(i).block(u64::from(new_task_block)).await?;
+    //                 let new_quorum_stake = stake_registry.get_current_total_stake(i).block(u64::from(new_task_block)).await?;
+
+    //                 if old_quorum_apk != new_quorum_apk {
+    //                     quorums_apk_update.push(QuorumsApkUpdate{
+    //                         quorum_number: i,
+    //                         quorum_apk: new_quorum_apk
+    //                     });
+    //                 }
+    //                 if old_quorum_stake != new_quorum_stake{
+    //                     quorums_stake_update.push(QuorumsStakeUpdate{
+    //                         quorum_number: i,
+    //                         quorum_stake: new_quorum_stake,
+    //                     });
+    //                 }
+                    
+    //                 quorums_common.push(i);
+
+    //                 maybe_i.next(); maybe_j.next();
+    //             },
+    //             (Some(&&i), Some(&&j)) if i < j => {
+    //                 // handle quorum number removed
+    //                 quorums_removed.push(i);
+    //                 // quorums_apk_update.push(QuorumsApkUpdate{
+    //                 //     quorum_number: i,
+    //                 //     quorum_apk: Default::default(),
+    //                 // });
+    //                 // quorums_stake_update.push(QuorumsStakeUpdate{
+    //                 //     quorum_number: i,
+    //                 //     quorum_stake: Default::default(),
+    //                 //     });
+    //                 maybe_i.next();
+    //             },
+    //             (Some(&&i), Some(&&j)) if i > j => {
+    //                 // handle quorum number added
+    //                 quorums_added.push(QuorumsAdded{
+    //                     quorum_number: j,
+    //                     quorum_stake: stake_registry.get_current_total_stake(j).block(u64::from(new_task_block)).await?,
+    //                     quorum_apk: bls_apk_registry.get_apk(j).block(u64::from(new_task_block)).await?,
+    //                 });
+
+    //                 maybe_j.next();
+    //             },
+    //             (Some(&&i), None) => {
+    //                 // handle quorum number removed
+    //                 quorums_removed.push(i);
+    //                 // quorums_apk_update.push(QuorumsApkUpdate{
+    //                 //     quorum_number: i,
+    //                 //     quorum_apk: Default::default(),
+    //                 // });
+    //                 // quorums_stake_update.push(QuorumsStakeUpdate{
+    //                 //     quorum_number: i,
+    //                 //     quorum_stake: Default::default(),
+    //                 //     });
+    //                 maybe_i.next();
+    //             },
+    //             (None, Some(&&j)) => {
+    //                 // handle quorum number added
+    //                 quorums_added.push(
+    //                     QuorumsAdded{
+    //                         quorum_number: j,
+    //                         quorum_stake: stake_registry.get_current_total_stake(j).block(u64::from(new_task_block)).await?,
+    //                         quorum_apk: bls_apk_registry.get_apk(j).block(u64::from(new_task_block)).await?,
+    //                     }
+    //                 );
+    //                 maybe_j.next();
+    //             },
+    //             (None, None) => {
+    //                 // handle quorum number added
+    //                 break;
+    //             },
+    //             _ => unreachable!()
+
+    //         }
+
+    //     }
+
+
+
+    //     let old_operators_stake = task_manager
+    //         .get_operator_state(
+    //             *registry_coordinator_address,
+    //             old_quorum_numbers.clone().into(),
+    //             old_task_block,
+    //         ).await?;
+    //     let new_operators_stake = task_manager
+    //         .get_operator_state(
+    //             *registry_coordinator_address,
+    //             new_quorum_numbers.clone().into(),
+    //             new_task_block,
+    //         ).await?;
+
+    //     let mut old_operators_avs_state = self.get_operators_avs_state_at_block(old_operators_stake, old_quorum_numbers.clone().into()).await.values().cloned().collect::<Vec<_>>();
+    //     let mut new_operators_avs_state = self.get_operators_avs_state_at_block(new_operators_stake, new_quorum_numbers.clone().into()).await.values().cloned().collect::<Vec<_>>();
+        
+    //     old_operators_avs_state.sort_by_key(|v| v.operator_id);
+    //     new_operators_avs_state.sort_by_key(|v| v.operator_id);
+
+    //     let mut maybe_i = old_operators_avs_state.iter().peekable();
+    //     let mut maybe_j = new_operators_avs_state.iter().peekable();
+
+    //     let mut operators_removed: Vec<[u8; 32]> = Vec::new();
+    //     let mut operators_added: Vec<OperatorsAdded> = Vec::new(); // Needs to be sorted
+    //     let mut operators_quorum_count_update: Vec<OperatorsQuorumCountUpdate> = Vec::new();
+    //     let mut operators_stake_update: Vec<OperatorsStakeUpdate> = Vec::new();
+
+    //     loop {
+    //         match (maybe_i.peek(), maybe_j.peek()){
+    //             (Some(&&ref i), Some(&&ref j)) if i.operator_id == j.operator_id => {
+    //                 // handle potential update
+
+    //                 if i.stake_per_quorum.len() != j.stake_per_quorum.len(){
+    //                     operators_quorum_count_update.push(OperatorsQuorumCountUpdate{
+    //                         operator_id: j.operator_id,
+    //                         quorum_count: j.stake_per_quorum.len().try_into()?,
+    //                     });
+    //                 }
+    //                 let mut operator_stake_update = OperatorsStakeUpdate{
+    //                     operator_id: j.operator_id,
+    //                     quorum_for_stakes: Default::default(),
+    //                     quorum_stakes: Default::default(),
+    //                 };
+    //                 for qn in quorums_removed.iter() {
+    //                     operator_stake_update.quorum_for_stakes.push(*qn);
+    //                     operator_stake_update.quorum_stakes.push(Default::default());
+    //                 }
+    //                 for qn in quorums_added.iter().map(|x| x.quorum_number) {
+    //                     operator_stake_update.quorum_for_stakes.push(qn);
+    //                     let stake = j.stake_per_quorum.get(&qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
+    //                     operator_stake_update.quorum_stakes.push(stake)
+    //                 }
+    //                 for qn in quorums_common.iter(){
+    //                     let stake_old = i.stake_per_quorum.get(&qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
+    //                     let stake_new = j.stake_per_quorum.get(&qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
+    //                     if stake_old != stake_new {
+    //                         operator_stake_update.quorum_for_stakes.push(*qn);
+    //                         operator_stake_update.quorum_stakes.push(stake_new)
+    //                     }
+    //                 }
+    //                 if !operator_stake_update.quorum_for_stakes.is_empty(){
+    //                 operators_stake_update.push(operator_stake_update);}
+
+    //                 maybe_i.next(); maybe_j.next();
+    //             },
+    //             (Some(&&ref i), Some(&&ref j)) if i.operator_id < j.operator_id => {
+    //                 // handle operator removed
+    //                 operators_removed.push(i.operator_id);
+    //                 maybe_i.next();
+    //             },
+    //             (Some(&&ref i), Some(&&ref j)) if i.operator_id > j.operator_id => {
+    //                 // handle quorum number added
+
+    //                 let mut operator_added = OperatorsAdded{
+    //                     operator_id: j.operator_id,
+    //                     quorum_for_stakes: Default::default(),
+    //                     quorum_stakes: Default::default(),
+    //                     quorum_count: j.stake_per_quorum.len().try_into()?,
+    //                 };
+
+    //                 for qn in j.stake_per_quorum.keys(){
+    //                     operator_added.quorum_for_stakes.push(*qn);
+    //                     let stake = j.stake_per_quorum.get(qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
+    //                     operator_added.quorum_stakes.push(stake)
+    //                 }
+
+    //                 operators_added.push(operator_added);
+
+    //                 maybe_j.next();
+    //             },
+    //             (Some(&&ref i), None) => {
+    //                 // handle quorum number removed
+    //                 operators_removed.push(i.operator_id);
+    //                 maybe_i.next();
+    //             },
+    //             (None, Some(&&ref j)) => {
+    //                 // handle operator added
+                    
+    //                 let mut operator_added = OperatorsAdded{
+    //                     operator_id: j.operator_id,
+    //                     quorum_for_stakes: Default::default(),
+    //                     quorum_stakes: Default::default(),
+    //                     quorum_count: j.stake_per_quorum.len().try_into()?,
+    //                 };
+
+    //                 for qn in j.stake_per_quorum.keys(){
+    //                     operator_added.quorum_for_stakes.push(*qn);
+    //                     let stake = j.stake_per_quorum.get(qn).map(u128::to_owned).unwrap_or_else(|| {error!("Failed to get operator quorum stake"); Default::default()});
+    //                     operator_added.quorum_stakes.push(stake)
+    //                 }
+
+    //                 operators_added.push(operator_added);
+    //                 maybe_j.next();
+    //             },
+    //             (None, None) => {
+    //                 // handle quorum number added
+    //                 break;
+    //             },
+    //             _ => unreachable!()
+    //         }
+
+    //     }
+
+    //     // quorums removed
+    //     // A vec of qourums removed
+    //     // Removes the corresponding quorum to apk map entry
+    //     // AND Removes the corresponding quorum to stakes map entry
+    //     // Note whenever a quorum is removed, all the operator's stake map entry for that quorum is also removed
+    //     // Note whenever a quorum is removed, all the operator's quorumCount map entry is also updated
+    //     // Note whenever a quorum is removed and an operator that was in it isn't is other quorums anymore either
+    //     // then such operators are also removed from state
+
+    //     // quorums added
+    //     // A Vec<(, )> of quorums added and their quorum apks
+
+    //     // The one above and the one below can be merged
+    //     // Nah... Let em be
+
+    //     // quorums modified
+    //     // A Vec<(, )> of quorums added and their changed quorums apks
+
+    //     // OperatorIdPubKey can be updated by the aggregator
+    //     // The aggregator just needs to provide the g1PubKeys
+    //     // The corrseponding entries will be checked against the sorted list of "Added OperatorIds" provided from here
+
+    //     // Provide a sorted list of new operatorIds (to the state)
+    //     // Mentioed below
+
+    //     // we have QuorumToStakes update - club with QuorumApks updates above
+
+    //     // From operator state
+    //     // We need the operators that have left the state
+    //     // We need the operators that have been added to the state in sorted order
+    //     // We need the operators whose stakes or quorum count have been modified
+
+
+    //     // This contains all operators that must be removed from associated quorum storage
+    //     // If a quorum is removed
+
+    //     let operators_state_changed = 
+    //     !quorums_removed.is_empty() || !quorums_added.is_empty() || !quorums_apk_update.is_empty() || !quorums_stake_update.is_empty() || !operators_removed.is_empty() || !operators_added.is_empty() || !operators_stake_update.is_empty() || !operators_quorum_count_update.is_empty() || (task.quorum_threshold_percentage != task.last_completed_task_quorum_threshold_percentage);
+
+    //     let operator_state_info = OperatorStateInfo {
+    //         operators_state_changed: operators_state_changed,
+    //         operators_state_provided: true,
+    //         quorums_removed: quorums_removed,
+    //         quorums_added: quorums_added,
+    //         quorums_stake_update: quorums_stake_update,
+    //         quorums_apk_update: quorums_apk_update,
+    //         operators_removed: operators_removed,
+    //         operators_added: operators_added,
+    //         operators_stake_update: operators_stake_update,
+    //         operators_quorum_count_update: operators_quorum_count_update,
+    //     };
+    //     println!("{:?}", operator_state_info);
+    //     Ok(operator_state_info)
+    //     // Ok(Default::default())
+    // }
+
+
+    // pub async fn get_operators_avs_state_at_block(
+    //     &self,
+    //     operators_stakes_in_quorums: Vec<Vec<TMOperator>>,
+    //     quorum_nums: Bytes,
+    // ) -> HashMap<H256, CustomOperatorAvsState> {
+    //     let mut operators_avs_state: HashMap<H256, CustomOperatorAvsState> = HashMap::new();
+
+    //     if operators_stakes_in_quorums.len() != quorum_nums.len() {
+    //         // throw error
+    //     }
+
+    //     for (quorum_id, quorum_num) in quorum_nums.iter().enumerate() {
+    //         for operator in &operators_stakes_in_quorums[quorum_id] {
+    //             let stake_per_quorum = HashMap::new();
+    //             let avs_state = operators_avs_state
+    //                 .entry(H256::from(operator.operator_id))
+    //                 .or_insert_with(|| CustomOperatorAvsState {
+    //                     operator_id: operator.operator_id,
+    //                     stake_per_quorum: stake_per_quorum,
+    //                 });
+    //             avs_state
+    //                 .stake_per_quorum
+    //                 .insert(*quorum_num, u128::from(operator.stake));
+    //         }
+    //     }
+
+    //     return operators_avs_state;
+    // }
 
     pub(crate) fn operator_id(&self) -> OperatorId {
         self.bls_keypair.operator_id()

@@ -46,7 +46,7 @@ interface IFinalizerTaskManager {
         uint32 referenceTaskIndex;
         Task referenceTask;
 
-        OperatorStateInfo operatorsStateInfo;
+        // OperatorStateInfo operatorsStateInfo;
         // This is the response that the operator has to provide for a finalized block.
         bytes32 blockHash;
         // This is the response that the operator has to provide for a an executed block.
