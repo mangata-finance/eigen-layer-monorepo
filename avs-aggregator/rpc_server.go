@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"encoding/hex"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	taskmanager "github.com/mangata-finance/eigen-layer-monorepo/avs-aggregator/bindings/FinalizerTaskManager"
 	"github.com/mangata-finance/eigen-layer-monorepo/avs-aggregator/core"
 
@@ -62,7 +64,7 @@ func (agg *Aggregator) handler(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 		default:
 			switch err.Error() {
-			case blsagg.TaskNotFoundErrorFn(0).Error():
+			case blsagg.TaskNotFoundErrorFn(response.TaskResponse.ReferenceTaskIndex).Error():
 				status = http.StatusNotFound
 			default:
 				status = http.StatusBadRequest
@@ -74,9 +76,9 @@ func (agg *Aggregator) handler(w http.ResponseWriter, req *http.Request) {
 }
 
 type SignedTaskResponse struct {
-	TaskResponse string
+	TaskResponseEncoded string
 	// TaskResponse []byte
-	TaskResponseWire taskmanager.IFinalizerTaskManagerTaskResponse
+	TaskResponse taskmanager.IFinalizerTaskManagerTaskResponse
 	BlsSignature bls.Signature
 	OperatorId   types.OperatorId
 }
@@ -93,7 +95,7 @@ type SignedTaskResponse struct {
 func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskResponse, reply *bool) error {
 	agg.logger.Info("Received signed task response", "taskResponse", signedTaskResponse.TaskResponse, "response", signedTaskResponse, "operatorId", signedTaskResponse.OperatorId.LogValue())
 
-	taskResponseTrimmed:=signedTaskResponse.TaskResponse[2:]
+	taskResponseTrimmed:=signedTaskResponse.TaskResponseEncoded[2:]
 	fmt.Print("ProcessSignedTaskResponse - taskResponseTrimmed:",taskResponseTrimmed, "\n")
 	task_response_bytes, err := hex.DecodeString(taskResponseTrimmed)
 	fmt.Print("ProcessSignedTaskResponse - task_response_bytes:",task_response_bytes, "\n")
@@ -111,13 +113,28 @@ func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskR
 	var taskResponse taskmanager.IFinalizerTaskManagerTaskResponse
 	unpacked, err := args.Unpack(task_response_bytes)
 	fmt.Print("ProcessSignedTaskResponse - unpacked:",unpacked, "\n")
-	args.Copy(taskResponse, unpacked)
+	// err = args.Copy(&taskResponse, unpacked)
+	// if err != nil {
+	// 	agg.logger.Error("Failed to get taskResponse", "err", err)
+	// 	return TaskResponseDigestNotFoundError500
+	// }
+	// fmt.Print("ProcessSignedTaskResponse - taskResponse:",taskResponse, "\n")
+
+	// var x taskmanager.IFinalizerTaskManagerTaskResponse
+	x := abi.ConvertType(unpacked[0], taskResponse)
+	fmt.Print("ProcessSignedTaskResponse - x:",x, "\n")
+	cx, ok := x.(taskmanager.IFinalizerTaskManagerTaskResponse)
+	fmt.Print("ProcessSignedTaskResponse - ok:",ok, "\n")
+	fmt.Print("ProcessSignedTaskResponse - cx:",cx, "\n")
+
+	taskResponse = cx
 	fmt.Print("ProcessSignedTaskResponse - taskResponse:",taskResponse, "\n")
 
 	// var taskResponse taskmanager.IFinalizerTaskManagerTaskResponse
 	// taskResponse := signedTaskResponse.TaskResponse
 	taskIndex := taskResponse.ReferenceTaskIndex
-	taskResponseDigest, err := core.GetTaskResponseDigest(&signedTaskResponse.TaskResponseWire)
+	taskResponseDigest, err := core.GetTaskResponseDigest(&taskResponse)
+	fmt.Print("ProcessSignedTaskResponse - taskResponseDigest:",taskResponseDigest, "\n")
 	if err != nil {
 		agg.logger.Error("Failed to get task response digest", "err", err)
 		return TaskResponseDigestNotFoundError500

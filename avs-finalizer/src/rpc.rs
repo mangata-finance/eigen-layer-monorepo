@@ -21,10 +21,10 @@ type Bytes32 = [u8; 32];
 
 #[derive(Serialize, Debug)]
 struct SignedTaskResponse {
+    #[serde(rename = "TaskResponseEncoded")]
+    task_response_encoded: Bytes,
     #[serde(rename = "TaskResponse")]
-    task_response: Bytes,
-    #[serde(rename = "TaskResponseWire")]
-    task_response_wire: TaskResponseWire,
+    task_response: TaskResponseWire,
     #[serde(rename = "BlsSignature")]
     bls_signature: BlsSignatureWire,
     #[serde(rename = "OperatorId")]
@@ -143,11 +143,14 @@ fn create_response(task: TaskResponse, keypair: &BlsKeypair) -> eyre::Result<Sig
 
     let hash = Keccak256::hash(encoded.as_ref());
     let sig = keypair.sign(hash.as_bytes())?;
+    println!("hash - {}", array_bytes::bytes2hex("0x", hash.clone()));
+    println!("hash - {:?}", hash);
+    println!("sig - {:?}", sig);
 
     Ok(SignedTaskResponse {
         bls_signature: sig.into(),
-        task_response: task.encode().into(),
-        task_response_wire: task.into(),
+        task_response_encoded: task.clone().encode().into(),
+        task_response: task.into(),
         operator_id: keypair.operator_id().to_fixed_bytes(),
     })
 }
