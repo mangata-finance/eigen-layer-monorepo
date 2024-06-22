@@ -47,11 +47,11 @@ interface IFinalizerTaskManager {
     struct TaskResponse {
         // Can be obtained by the operator from the event NewTaskCreated.
         uint32 referenceTaskIndex;
-        
+        bytes test;
         // uint96 quorum total stake update
         uint256 quorumApkUpdateG1X;
         uint256 quorumApkUpdateG1Y;
-        bytes32[] operatorsRemoved;
+        // bytes32[] operatorsRemoved;
         // bytes32[] operatorsAdded
         // uint96[] operatorAddedStakes
         // bytes32[] operatorsUpdated

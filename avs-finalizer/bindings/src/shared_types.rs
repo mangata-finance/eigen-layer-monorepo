@@ -145,7 +145,7 @@ pub struct Task {
     pub quorum_numbers: ::ethers::core::types::Bytes,
     pub quorum_threshold_percentage: u32,
 }
-///`TaskResponse(uint32,uint256,uint256,bytes32[],bytes32,bytes32,bytes32)`
+///`TaskResponse(uint32,bytes,uint256,uint256,bytes32,bytes32,bytes32)`
 #[derive(
     Clone,
     ::ethers::contract::EthAbiType,
@@ -160,9 +160,9 @@ pub struct Task {
 )]
 pub struct TaskResponse {
     pub reference_task_index: u32,
+    pub test: ::ethers::core::types::Bytes,
     pub quorum_apk_update_g1x: ::ethers::core::types::U256,
     pub quorum_apk_update_g1y: ::ethers::core::types::U256,
-    pub operators_removed: ::std::vec::Vec<[u8; 32]>,
     pub block_hash: [u8; 32],
     pub storage_proof_hash: [u8; 32],
     pub pending_state_hash: [u8; 32],
