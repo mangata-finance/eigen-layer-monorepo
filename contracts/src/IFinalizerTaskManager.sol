@@ -33,11 +33,33 @@ interface IFinalizerTaskManager {
         uint32 quorumThresholdPercentage;
     }
 
+    struct Test{
+        uint32 a;
+        bytes b;
+    }
+    struct Test2{
+        uint32 a;
+        uint32 b;
+    }
+
     // Task response is hashed and signed by operators.
     // these signatures are aggregated and sent to the contract as response.
     struct TaskResponse {
         // Can be obtained by the operator from the event NewTaskCreated.
         uint32 referenceTaskIndex;
+        
+        // uint96 quorum total stake update
+        uint256 quorumApkUpdateG1X;
+        uint256 quorumApkUpdateG1Y;
+        bytes32[] operatorsRemoved;
+        // bytes32[] operatorsAdded
+        // uint96[] operatorAddedStakes
+        // bytes32[] operatorsUpdated
+        // uint96[] operatorsUpdatedStakes
+
+        // BN254.G1Point 
+
+        // uint8 test;
         // This is the response that the operator has to provide for a finalized block.
         bytes32 blockHash;
         // This is the response that the operator has to provide for a an executed block.

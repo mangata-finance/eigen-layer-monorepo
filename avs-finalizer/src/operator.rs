@@ -12,6 +12,7 @@ use bindings::{
 use ethers::providers::{Middleware, PendingTransaction, SubscriptionStream};
 use ethers::{
     contract::{stream, LogMeta},
+    core::types::U256,
     providers::StreamExt,
     types::Address,
 };
@@ -98,6 +99,21 @@ impl Operator {
                         debug!("Block executed successfully {:?}", proofs);
                         let payload = TaskResponse {
                             reference_task_index: event.task_index,
+                            // task: event.task,
+                            // test: Test{
+                            //     a: 47u32.into(),
+                            //     b: vec![7u8,9u8,17u8].into(),
+                            // },
+                            // test: Test2{
+                            //     a: 47u32.into(),
+                            //     b: 49u32.into(),
+                            // },
+                            // test: vec![U256::from(7), U256::from(7), U256::from(7)].into(),
+                            // test: proofs.0.clone().as_fixed_bytes().to_owned(),
+                            // test: 7u8.into(),
+                            quorum_apk_update_g1x:U256::from(177u32),
+                            quorum_apk_update_g1y:U256::from(191u32),
+                            operators_removed:vec![[7u8;32],[11u8;32],[17u8;32]],
                             block_hash: proofs.0.as_fixed_bytes().to_owned(),
                             storage_proof_hash: proofs.1.as_fixed_bytes().to_owned(),
                             pending_state_hash: proofs.2.as_fixed_bytes().to_owned(),

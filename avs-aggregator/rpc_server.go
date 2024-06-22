@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"fmt"
 	"encoding/hex"
+	// "io"
+	// "strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
@@ -51,9 +53,17 @@ func (agg *Aggregator) handler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+
+	// buf := new(strings.Builder)
+	// io.Copy(buf, req.Body)
+
+	// agg.logger.Info("handler", "req.Body", buf.String())
+
 	var response SignedTaskResponse
 	if err := json.NewDecoder(req.Body).Decode(&response); err != nil {
 		http.Error(w, "Error parsing request body", http.StatusBadRequest)
+		
+		fmt.Print("handler - err:",err, "\n")
 		return
 	}
 
@@ -64,7 +74,7 @@ func (agg *Aggregator) handler(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 		default:
 			switch err.Error() {
-			case blsagg.TaskNotFoundErrorFn(response.TaskResponse.ReferenceTaskIndex).Error():
+			case blsagg.TaskNotFoundErrorFn(0).Error():
 				status = http.StatusNotFound
 			default:
 				status = http.StatusBadRequest
@@ -78,7 +88,7 @@ func (agg *Aggregator) handler(w http.ResponseWriter, req *http.Request) {
 type SignedTaskResponse struct {
 	TaskResponseEncoded string
 	// TaskResponse []byte
-	TaskResponse taskmanager.IFinalizerTaskManagerTaskResponse
+	// TaskResponse taskmanager.IFinalizerTaskManagerTaskResponse
 	BlsSignature bls.Signature
 	OperatorId   types.OperatorId
 }
@@ -93,7 +103,7 @@ type SignedTaskResponse struct {
 // reply doesn't need to be checked. If there are no errors, the task response is accepted
 // rpc framework forces a reply type to exist, so we put bool as a placeholder
 func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskResponse, reply *bool) error {
-	agg.logger.Info("Received signed task response", "taskResponse", signedTaskResponse.TaskResponse, "response", signedTaskResponse, "operatorId", signedTaskResponse.OperatorId.LogValue())
+	agg.logger.Info("Received signed task response", signedTaskResponse, "operatorId", signedTaskResponse.OperatorId.LogValue())
 
 	taskResponseTrimmed:=signedTaskResponse.TaskResponseEncoded[2:]
 	fmt.Print("ProcessSignedTaskResponse - taskResponseTrimmed:",taskResponseTrimmed, "\n")
@@ -105,14 +115,32 @@ func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskR
 	}
 
 	parsedAbi, err := taskmanager.ContractFinalizerTaskManagerMetaData.GetAbi()
-	inputParameters := parsedAbi.Methods["respondToTask"].Inputs
-	fmt.Print("ProcessSignedTaskResponse - inputParameters:",inputParameters, "\n")
+	if err != nil {
+		agg.logger.Error("Failed to get parsedAbi", "err", err)
+		return TaskResponseDigestNotFoundError500
+	}
 
-	args := inputParameters[1:2]
+	// inputParameters := parsedAbi.Methods["respondToTask"].Inputs
+	inputParameters := parsedAbi.Methods["dummyForTaskResponseType"].Inputs
+	fmt.Print("ProcessSignedTaskResponse - inputParameters:",inputParameters, "\n")
+	// args := inputParameters[1:2]
+	args := inputParameters
 	fmt.Print("ProcessSignedTaskResponse - args:",args, "\n")
-	var taskResponse taskmanager.IFinalizerTaskManagerTaskResponse
-	unpacked, err := args.Unpack(task_response_bytes)
+	// unpacked, err := args.Unpack(task_response_bytes)
+	unpacked, err := args.UnpackValues(task_response_bytes)
+	if err != nil {
+		agg.logger.Error("Failed to get unpacked", "err", err)
+		return TaskResponseDigestNotFoundError500
+	}
 	fmt.Print("ProcessSignedTaskResponse - unpacked:",unpacked, "\n")
+
+	// unpacked, err := parsedAbi.Unpack("dummyForTaskResponseType", task_response_bytes)
+	// if err != nil {
+	// 	agg.logger.Error("Failed to get taskResponse", "err", err)
+	// 	return TaskResponseDigestNotFoundError500
+	// }
+	// fmt.Print("ProcessSignedTaskResponse - unpacked:",unpacked, "\n")
+
 	// err = args.Copy(&taskResponse, unpacked)
 	// if err != nil {
 	// 	agg.logger.Error("Failed to get taskResponse", "err", err)
@@ -121,6 +149,11 @@ func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskR
 	// fmt.Print("ProcessSignedTaskResponse - taskResponse:",taskResponse, "\n")
 
 	// var x taskmanager.IFinalizerTaskManagerTaskResponse
+
+
+	var taskResponse taskmanager.IFinalizerTaskManagerTaskResponse
+	// x := abi.ConvertType(unpacked[0], taskResponse)
+	fmt.Print("ProcessSignedTaskResponse - unpacked[0]:",unpacked[0], "\n")
 	x := abi.ConvertType(unpacked[0], taskResponse)
 	fmt.Print("ProcessSignedTaskResponse - x:",x, "\n")
 	cx, ok := x.(taskmanager.IFinalizerTaskManagerTaskResponse)
@@ -130,8 +163,10 @@ func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskR
 	taskResponse = cx
 	fmt.Print("ProcessSignedTaskResponse - taskResponse:",taskResponse, "\n")
 
+
 	// var taskResponse taskmanager.IFinalizerTaskManagerTaskResponse
-	// taskResponse := signedTaskResponse.TaskResponse
+	// taskResponse = signedTaskResponse.TaskResponse
+
 	taskIndex := taskResponse.ReferenceTaskIndex
 	taskResponseDigest, err := core.GetTaskResponseDigest(&taskResponse)
 	fmt.Print("ProcessSignedTaskResponse - taskResponseDigest:",taskResponseDigest, "\n")
@@ -235,3 +270,105 @@ func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskR
 // avs-aggregator-1  | AbiEncodeTaskResponse - h:&{0 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]}
 // avs-aggregator-1  | AbiEncodeTaskResponse - bytes:[0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
 // avs-aggregator-1  | AbiEncodeTaskResponse - unpacked_by_arguments:[{0 [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]}]
+
+
+// {"type":"function","name":"dummyForTaskResponseType","inputs":[{"name":"taskResponse","type":"tuple","internalType":"structIFinalizerTaskManager.TaskResponse","components":[{"name":"referenceTaskIndex","type":"uint32","internalType":"uint32"},{"name":"task","type":"tuple","internalType":"structIFinalizerTaskManager.Task","components":[{"name":"blockNumber","type":"uint256","internalType":"uint256"},{"name":"taskCreatedBlock","type":"uint32","internalType":"uint32"},{"name":"quorumNumbers","type":"bytes","internalType":"bytes"},{"name":"quorumThresholdPercentage","type":"uint32","internalType":"uint32"}]},{"name":"blockHash","type":"bytes32","internalType":"bytes32"},{"name":"storageProofHash","type":"bytes32","internalType":"bytes32"},{"name":"pendingStateHash","type":"bytes32","internalType":"bytes32"}]}],"outputs":[],"stateMutability":"view"}
+
+
+// 0000000000000000000000000000000000000000000000000000000000000019000000000000000000000000000000000000000000000000000000000000001d0000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000
+
+
+// {
+// 	"name":"task",
+// 	"type":"tuple",
+// 	"internalType":"structIFinalizerTaskManager.Task",
+// 	"components":[
+// 		{
+// 			"name":"blockNumber",
+// 			"type":"uint256",
+// 			"internalType":"uint256"
+// 		},
+// 		{
+// 			"name":"taskCreatedBlock",
+// 			"type":"uint32",
+// 			"internalType":"uint32"
+// 		},
+// 		{
+// 			"name":"quorumNumbers",
+// 			"type":"bytes",
+// 			"internalType":"bytes"
+// 		},
+// 		{
+// 			"name":"quorumThresholdPercentage",
+// 			"type":"uint32",
+// 			"internalType":"uint32"
+// 		}
+// 	]
+// },
+
+// [
+//     {
+//         "constant": false,
+//         "inputs":[
+
+//     {
+//         "name":"taskResponse",
+//         "type":"tuple",
+//         "components":[
+//             {
+//                 "name":"referenceTaskIndex",
+//                 "type":"uint32",
+//             },
+//             {
+//                 "name":"task",
+//                 "type":"tuple",
+//                 "components":[
+//                     {
+//                         "name":"blockNumber",
+//                         "type":"uint256",
+//                     },
+//                     {
+//                         "name":"taskCreatedBlock",
+//                         "type":"uint32",
+//                     },
+//                     {
+//                         "name":"quorumNumbers",
+//                         "type":"bytes",
+//                     },
+//                     {
+//                         "name":"quorumThresholdPercentage",
+//                         "type":"uint32",
+//                     }
+//                 ]
+//             },
+//             {
+//                 "name":"blockHash",
+//                 "type":"bytes32",
+//             },
+//             {
+//                 "name":"storageProofHash",
+//                 "type":"bytes32",
+//             },
+//             {
+//                 "name":"pendingStateHash",
+//                 "type":"bytes32",
+//             }
+//         ]
+//     }
+
+// ],
+//         "name": "bidOnSiringAuction",
+//         "outputs": [],
+//         "payable": true,
+//         "stateMutability": "payable",
+//         "type": "function"
+//     }
+// ]
+
+// 000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000a01b8984ddc90fb24c893d70cb8324256300fc06d5a9f4d44182b25beb76b3a4f60ad0f927c04731ac4243d854d966fe662e57c2002e99ae249f3ed4d0e9e23c511fbc131f4eafcddc650de1519b37f71f6b9a864523c83f16392f4798cc2eb9190000000000000000000000000000000000000000000000000000000000000019000000000000000000000000000000000000000000000000000000000000001d0000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000004200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000
+
+// 0xed60ade600000000000000000000000000000000000000000000000000000000000000021b8984ddc90fb24c893d70cb8324256300fc06d5a9f4d44182b25beb76b3a4f60ad0f927c04731ac4243d854d966fe662e57c2002e99ae249f3ed4d0e9e23c511fbc131f4eafcddc650de1519b37f71f6b9a864523c83f16392f4798cc2eb919
+
+// 0xd2fd914c000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000a01b8984ddc90fb24c893d70cb8324256300fc06d5a9f4d44182b25beb76b3a4f60ad0f927c04731ac4243d854d966fe662e57c2002e99ae249f3ed4d0e9e23c511fbc131f4eafcddc650de1519b37f71f6b9a864523c83f16392f4798cc2eb9190000000000000000000000000000000000000000000000000000000000000019
+
+// 0000000000000000000000000000000000000000000000000000000000000019

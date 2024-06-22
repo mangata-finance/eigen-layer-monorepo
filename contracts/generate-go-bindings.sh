@@ -6,6 +6,7 @@ function create_binding {
     binding_dir=$3
     echo "generating bindings for" $contract
     mkdir -p $binding_dir/${contract}
+    mkdir -p data_bkp/${contract}
     contract_json="$contract_dir/out/${contract}.sol/${contract}.json"
     solc_abi=$(cat ${contract_json} | jq -r '.abi')
     solc_bin=$(cat ${contract_json} | jq -r '.bytecode.object')
@@ -16,6 +17,8 @@ function create_binding {
 
     rm -f $binding_dir/${contract}/binding.go
     abigen --bin=data/tmp.bin --abi=data/tmp.abi --pkg=contract${contract} --out=$binding_dir/${contract}/binding.go
+    # mv data/tmp.abi data_bkp/${contract}/tmp.abi
+    # mv data/tmp.bin data_bkp/${contract}/tmp.bin
     rm -rf ../data/tmp.abi ../data/tmp.bin
 }
 

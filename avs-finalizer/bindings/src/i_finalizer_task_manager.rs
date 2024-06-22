@@ -134,6 +134,15 @@ pub mod i_finalizer_task_manager {
                                 name: ::std::borrow::ToOwned::to_owned("taskResponse"),
                                 kind: ::ethers::core::abi::ethabi::ParamType::Tuple(::std::vec![
                                     ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
+                                    ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
+                                    ::ethers::core::abi::ethabi::ParamType::Array(
+                                        ::std::boxed::Box::new(
+                                            ::ethers::core::abi::ethabi::ParamType::FixedBytes(
+                                                32usize
+                                            ),
+                                        ),
+                                    ),
                                     ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                     ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                     ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
@@ -327,7 +336,7 @@ pub mod i_finalizer_task_manager {
     )]
     #[ethevent(
         name = "TaskResponded",
-        abi = "TaskResponded((uint32,bytes32,bytes32,bytes32),(uint32,bytes32,uint96[],uint96[]))"
+        abi = "TaskResponded((uint32,uint256,uint256,bytes32[],bytes32,bytes32,bytes32),(uint32,bytes32,uint96[],uint96[]))"
     )]
     pub struct TaskRespondedFilter {
         pub task_response: TaskResponse,

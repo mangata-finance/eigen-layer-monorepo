@@ -15,35 +15,35 @@ import (
 // unclear why abigen doesn't provide this out of the box...
 func AbiEncodeTaskResponse(h *taskmanager.IFinalizerTaskManagerTaskResponse) ([]byte, error) {
 
-	// The order here has to match the field ordering of taskmanager.IFinalizerTaskManagerTaskResponse
-	taskResponseType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
-		{
-			Name: "referenceTaskIndex",
-			Type: "uint32",
-		},
-		{
-			Name: "BlockHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "StorageProofHash",
-			Type: "bytes32",
-		},
-		{
-			Name: "PendingStateHash",
-			Type: "bytes32",
-		},
-	})
-	fmt.Print("AbiEncodeTaskResponse - taskResponseType:",taskResponseType, "\n")
-	if err != nil {
-		return nil, err
-	}
-	arguments := abi.Arguments{
-		{
-			Type: taskResponseType,
-		},
-	}
-	fmt.Print("AbiEncodeTaskResponse - arguments:",arguments, "\n")
+	// // The order here has to match the field ordering of taskmanager.IFinalizerTaskManagerTaskResponse
+	// taskResponseType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+	// 	{
+	// 		Name: "referenceTaskIndex",
+	// 		Type: "uint32",
+	// 	},
+	// 	{
+	// 		Name: "BlockHash",
+	// 		Type: "bytes32",
+	// 	},
+	// 	{
+	// 		Name: "StorageProofHash",
+	// 		Type: "bytes32",
+	// 	},
+	// 	{
+	// 		Name: "PendingStateHash",
+	// 		Type: "bytes32",
+	// 	},
+	// })
+	// fmt.Print("AbiEncodeTaskResponse - taskResponseType:",taskResponseType, "\n")
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// arguments := abi.Arguments{
+	// 	{
+	// 		Type: taskResponseType,
+	// 	},
+	// }
+	// fmt.Print("AbiEncodeTaskResponse - arguments:",arguments, "\n")
 
 	// // agg.logger.Info("Received signed task response", "response", signedTaskResponse, "operatorId", signedTaskResponse.OperatorId.LogValue())
 	// // var taskResponse taskmanager.IFinalizerTaskManagerTaskResponse
@@ -93,8 +93,14 @@ func AbiEncodeTaskResponse(h *taskmanager.IFinalizerTaskManagerTaskResponse) ([]
 	// agg.logger.Info("ProcessSignedTaskResponse", "args", args)
 	packed, err := args.Pack(h)
 	fmt.Print("AbiEncodeTaskResponse - packed:",packed, "\n")
+	if err != nil {
+		return nil, err
+	}
 	unpacked_by_args, err:= args.Unpack(packed)
 	fmt.Print("AbiEncodeTaskResponse - unpacked_by_args:",unpacked_by_args, "\n")
+	if err != nil {
+		return nil, err
+	}
 	// unpacked, err := args.Unpack(signedTaskResponse.TaskResponse)
 	// if err != nil {
 	// 	agg.logger.Error("Failed to get task response", "err", err)
@@ -105,18 +111,18 @@ func AbiEncodeTaskResponse(h *taskmanager.IFinalizerTaskManagerTaskResponse) ([]
 
 	// // taskResponse := abi.toGoType(0, taskmanager.IFinalizerTaskManagerTaskResponse, signedTaskResponse.TaskResponse)
 
-	fmt.Print("AbiEncodeTaskResponse - h:",h, "\n")
-	bytes, err := arguments.Pack(h)
-	fmt.Print("AbiEncodeTaskResponse - bytes:",bytes, "\n")
+	// fmt.Print("AbiEncodeTaskResponse - h:",h, "\n")
+	// bytes, err := arguments.Pack(h)
+	// fmt.Print("AbiEncodeTaskResponse - bytes:",bytes, "\n")
 
-	unpacked_by_arguments, err:= arguments.Unpack(bytes)
-	fmt.Print("AbiEncodeTaskResponse - unpacked_by_arguments:",unpacked_by_arguments, "\n")
+	// unpacked_by_arguments, err:= arguments.Unpack(bytes)
+	// fmt.Print("AbiEncodeTaskResponse - unpacked_by_arguments:",unpacked_by_arguments, "\n")
 
-	if err != nil {
-		return nil, err
-	}
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	return bytes, nil
+	return packed, nil
 }
 
 // GetTaskResponseDigest returns the hash of the TaskResponse, which is what operators sign over
