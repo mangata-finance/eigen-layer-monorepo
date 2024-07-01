@@ -17,7 +17,10 @@ gcloud auth application-default login
 git config --global diff.sopsdiffer.textconv "sops -d --config /dev/null"
 
 # To edit secrets.enc.yaml file run next command
-sops edit secrets.enc.yaml
+sops secrets.enc.yaml
+
+# To show decrypted values
+sops -d secrets.enc.yaml
 ```
 
 4. Configure connectin to cluster
