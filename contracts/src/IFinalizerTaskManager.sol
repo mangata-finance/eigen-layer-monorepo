@@ -49,6 +49,8 @@ interface IFinalizerTaskManager {
         // Can be obtained by the operator from the event NewTaskCreated.
         uint32 referenceTaskIndex;
         bytes32 referenceTaskHash;
+        bytes32[][] hashes;
+        // Task taskTest;
 
         bytes32 operatorsStateInfoHash;
         // This is the response that the operator has to provide for a finalized block.
@@ -59,6 +61,22 @@ interface IFinalizerTaskManager {
         bytes32 pendingStateHash;
     }
 
+    struct TaskResponseTest {
+        // Can be obtained by the operator from the event NewTaskCreated.
+        uint32 referenceTaskIndex;
+        bytes32 referenceTaskHash;
+
+        bytes32[] hashes;
+        Task taskTest;
+
+        bytes32 operatorsStateInfoHash;
+        // This is the response that the operator has to provide for a finalized block.
+        bytes32 blockHash;
+        // This is the response that the operator has to provide for a an executed block.
+        bytes32 storageProofHash;
+        // This is the response that the operator has to provide for a state hash at given block.
+        bytes32 pendingStateHash;
+    }
 
     // Extra information related to taskResponse, which is filled inside the contract.
     // It thus cannot be signed by operators, so we keep it in a separate struct than TaskResponse

@@ -225,4 +225,10 @@ contract FinalizerTaskManager is
     
     function dummyForOperatorStateInfoType(IGaspMultiRollupServicePrimitives.OperatorStateInfo calldata _operatorStateInfo) external view {
     }
+
+    function dummyForTaskResponse(TaskResponse calldata _taskResponse) external view {
+    }
+
+    function dummyForTaskResponseTest(TaskResponseTest calldata _taskResponseTest) external view {
+    }
 }

@@ -166,7 +166,7 @@ pub struct Task {
     pub last_completed_task_quorum_numbers: ::ethers::core::types::Bytes,
     pub last_completed_task_quorum_threshold_percentage: u32,
 }
-///`TaskResponse(uint32,bytes32,bytes32,bytes32,bytes32,bytes32)`
+///`TaskResponse(uint32,bytes32,bytes32[][],bytes32,bytes32,bytes32,bytes32)`
 #[derive(
     Clone,
     ::ethers::contract::EthAbiType,
@@ -182,6 +182,7 @@ pub struct Task {
 pub struct TaskResponse {
     pub reference_task_index: u32,
     pub reference_task_hash: [u8; 32],
+    pub hashes: ::std::vec::Vec<::std::vec::Vec<[u8; 32]>>,
     pub operators_state_info_hash: [u8; 32],
     pub block_hash: [u8; 32],
     pub storage_proof_hash: [u8; 32],

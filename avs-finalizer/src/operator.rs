@@ -130,11 +130,56 @@ impl Operator {
                                     event.task.clone().encode().into_iter()
                                 ).collect::<Vec<_>>()
                                 .as_ref()).into(),
-                            operators_state_info_hash: operators_state_info_hash,
-                            block_hash: proofs.0.as_fixed_bytes().to_owned(),
-                            storage_proof_hash: proofs.1.as_fixed_bytes().to_owned(),
-                            pending_state_hash: proofs.2.as_fixed_bytes().to_owned(),
+                            hashes: vec![
+                            vec![],
+                            vec![
+                                [0u8;32],
+                                [7u8;32],
+                                operators_state_info_hash.clone(),
+                                proofs.0.clone().as_fixed_bytes().to_owned(),
+                                proofs.1.clone().as_fixed_bytes().to_owned(),
+                                proofs.2.clone().as_fixed_bytes().to_owned(),
+                                proofs.1.clone().as_fixed_bytes().to_owned(),
+                            ],
+                            vec![
+                                operators_state_info_hash.clone(),
+                                proofs.0.clone().as_fixed_bytes().to_owned(),
+                                proofs.1.clone().as_fixed_bytes().to_owned(),
+                            ],
+                            vec![
+                                operators_state_info_hash.clone(),
+                            ],
+                            ],
+                            // task_test: event.task.clone(),
+                            operators_state_info_hash: operators_state_info_hash.clone(),
+                            block_hash: proofs.0.clone().as_fixed_bytes().to_owned(),
+                            storage_proof_hash: proofs.1.clone().as_fixed_bytes().to_owned(),
+                            pending_state_hash: proofs.2.clone().as_fixed_bytes().to_owned(),
                         };
+                        // let task_test = Task{
+                        //     task_num: 3,
+                        //     block_number: 5.into(),
+                        //     task_created_block: 7,
+                        //     last_completed_task_created_block: 11,
+                        //     quorum_numbers: vec![9u8,11u8].into(),
+                        //     quorum_threshold_percentage: 78,
+                        //     last_completed_task_quorum_numbers: vec![].into(),
+                        //     last_completed_task_quorum_threshold_percentage: 54,
+                        // };
+                        // let payload_test = bindings::finalizer_task_manager::TaskResponseTest {
+                        //     reference_task_index: payload.reference_task_index.clone(),
+                        //     reference_task_hash: payload.reference_task_hash.clone(),
+                        //     hashes: vec![operators_state_info_hash.clone(),
+                        //     proofs.0.clone().as_fixed_bytes().to_owned(),
+                        //     proofs.1.clone().as_fixed_bytes().to_owned(),
+                        //     proofs.2.clone().as_fixed_bytes().to_owned(),],
+                        //     task_test: task_test,
+                        //     operators_state_info_hash: operators_state_info_hash,
+                        //     block_hash: payload.block_hash.clone(),
+                        //     storage_proof_hash: payload.storage_proof_hash.clone(),
+                        //     pending_state_hash: payload.pending_state_hash.clone(),
+                        // };
+                        // info!("payload_test: {:?}", array_bytes::bytes2hex("0x", payload_test.encode()));
                         let response = self
                             .rpc
                             .send_task_response(payload, &self.bls_keypair)

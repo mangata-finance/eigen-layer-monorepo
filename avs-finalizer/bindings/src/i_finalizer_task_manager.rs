@@ -154,6 +154,15 @@ pub mod i_finalizer_task_manager {
                                         ::std::vec![
                                             ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                            ::ethers::core::abi::ethabi::ParamType::Array(
+                                                ::std::boxed::Box::new(
+                                                    ::ethers::core::abi::ethabi::ParamType::Array(
+                                                        ::std::boxed::Box::new(
+                                                            ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
@@ -184,6 +193,15 @@ pub mod i_finalizer_task_manager {
                                         ::std::vec![
                                             ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                            ::ethers::core::abi::ethabi::ParamType::Array(
+                                                ::std::boxed::Box::new(
+                                                    ::ethers::core::abi::ethabi::ParamType::Array(
+                                                        ::std::boxed::Box::new(
+                                                            ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                             ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
@@ -378,7 +396,7 @@ pub mod i_finalizer_task_manager {
     )]
     #[ethevent(
         name = "TaskCompleted",
-        abi = "TaskCompleted(uint32,bytes32,(uint32,bytes32,bytes32,bytes32,bytes32,bytes32))"
+        abi = "TaskCompleted(uint32,bytes32,(uint32,bytes32,bytes32[][],bytes32,bytes32,bytes32,bytes32))"
     )]
     pub struct TaskCompletedFilter {
         #[ethevent(indexed)]
@@ -401,7 +419,7 @@ pub mod i_finalizer_task_manager {
     )]
     #[ethevent(
         name = "TaskResponded",
-        abi = "TaskResponded(uint32,(uint32,bytes32,bytes32,bytes32,bytes32,bytes32),(uint32,bytes32,uint96[],uint96[]))"
+        abi = "TaskResponded(uint32,(uint32,bytes32,bytes32[][],bytes32,bytes32,bytes32,bytes32),(uint32,bytes32,uint96[],uint96[]))"
     )]
     pub struct TaskRespondedFilter {
         #[ethevent(indexed)]
