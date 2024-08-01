@@ -95,7 +95,11 @@ pub mod i_finalizer_task_manager {
                             ::ethers::core::abi::ethabi::EventParam {
                                 name: ::std::borrow::ToOwned::to_owned("task"),
                                 kind: ::ethers::core::abi::ethabi::ParamType::Tuple(::std::vec![
+                                    ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
                                     ::ethers::core::abi::ethabi::ParamType::Uint(256usize),
+                                    ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::Bytes,
                                     ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
                                     ::ethers::core::abi::ethabi::ParamType::Bytes,
                                     ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
@@ -121,6 +125,18 @@ pub mod i_finalizer_task_manager {
                                 kind: ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize,),
                                 indexed: true,
                             },
+                            ::ethers::core::abi::ethabi::EventParam {
+                                name: ::std::borrow::ToOwned::to_owned("taskResponse"),
+                                kind: ::ethers::core::abi::ethabi::ParamType::Tuple(::std::vec![
+                                    ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                ],),
+                                indexed: false,
+                            },
                         ],
                         anonymous: false,
                     },],
@@ -131,9 +147,16 @@ pub mod i_finalizer_task_manager {
                         name: ::std::borrow::ToOwned::to_owned("TaskResponded"),
                         inputs: ::std::vec![
                             ::ethers::core::abi::ethabi::EventParam {
+                                name: ::std::borrow::ToOwned::to_owned("taskIndex"),
+                                kind: ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
+                                indexed: true,
+                            },
+                            ::ethers::core::abi::ethabi::EventParam {
                                 name: ::std::borrow::ToOwned::to_owned("taskResponse"),
                                 kind: ::ethers::core::abi::ethabi::ParamType::Tuple(::std::vec![
                                     ::ethers::core::abi::ethabi::ParamType::Uint(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
+                                    ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                     ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                     ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
                                     ::ethers::core::abi::ethabi::ParamType::FixedBytes(32usize),
@@ -287,7 +310,7 @@ pub mod i_finalizer_task_manager {
     )]
     #[ethevent(
         name = "NewTaskCreated",
-        abi = "NewTaskCreated(uint32,(uint256,uint32,bytes,uint32))"
+        abi = "NewTaskCreated(uint32,(uint32,uint256,uint32,uint32,bytes,uint32,bytes,uint32))"
     )]
     pub struct NewTaskCreatedFilter {
         #[ethevent(indexed)]
@@ -306,12 +329,16 @@ pub mod i_finalizer_task_manager {
         Eq,
         Hash,
     )]
-    #[ethevent(name = "TaskCompleted", abi = "TaskCompleted(uint32,bytes32)")]
+    #[ethevent(
+        name = "TaskCompleted",
+        abi = "TaskCompleted(uint32,bytes32,(uint32,bytes32,bytes32,bytes32,bytes32,bytes32))"
+    )]
     pub struct TaskCompletedFilter {
         #[ethevent(indexed)]
         pub task_index: u32,
         #[ethevent(indexed)]
         pub block_hash: [u8; 32],
+        pub task_response: TaskResponse,
     }
     #[derive(
         Clone,
@@ -327,9 +354,11 @@ pub mod i_finalizer_task_manager {
     )]
     #[ethevent(
         name = "TaskResponded",
-        abi = "TaskResponded((uint32,bytes32,bytes32,bytes32),(uint32,bytes32,uint96[],uint96[]))"
+        abi = "TaskResponded(uint32,(uint32,bytes32,bytes32,bytes32,bytes32,bytes32),(uint32,bytes32,uint96[],uint96[]))"
     )]
     pub struct TaskRespondedFilter {
+        #[ethevent(indexed)]
+        pub task_index: u32,
         pub task_response: TaskResponse,
         pub task_response_metadata: TaskResponseMetadata,
     }

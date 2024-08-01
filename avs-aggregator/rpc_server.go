@@ -6,6 +6,9 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"encoding/hex"
+
 	taskmanager "github.com/mangata-finance/eigen-layer-monorepo/avs-aggregator/bindings/FinalizerTaskManager"
 	"github.com/mangata-finance/eigen-layer-monorepo/avs-aggregator/core"
 
@@ -60,7 +63,8 @@ func (agg *Aggregator) handler(w http.ResponseWriter, req *http.Request) {
 			status = http.StatusInternalServerError
 		default:
 			switch err.Error() {
-			case blsagg.TaskNotFoundErrorFn(response.TaskResponse.ReferenceTaskIndex).Error():
+			// case blsagg.TaskNotFoundErrorFn(response.TaskResponse.ReferenceTaskIndex).Error():
+			case blsagg.TaskNotFoundErrorFn(0).Error():
 				status = http.StatusNotFound
 			default:
 				status = http.StatusBadRequest
@@ -72,7 +76,7 @@ func (agg *Aggregator) handler(w http.ResponseWriter, req *http.Request) {
 }
 
 type SignedTaskResponse struct {
-	TaskResponse taskmanager.IFinalizerTaskManagerTaskResponse
+	TaskResponse string
 	BlsSignature bls.Signature
 	OperatorId   types.OperatorId
 }
@@ -82,8 +86,35 @@ type SignedTaskResponse struct {
 // rpc framework forces a reply type to exist, so we put bool as a placeholder
 func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskResponse, reply *bool) error {
 	agg.logger.Info("Received signed task response", "response", signedTaskResponse, "operatorId", signedTaskResponse.OperatorId.LogValue())
-	taskIndex := signedTaskResponse.TaskResponse.ReferenceTaskIndex
-	taskResponseDigest, err := core.GetTaskResponseDigest(&signedTaskResponse.TaskResponse)
+
+	task_response_bytes, err := hex.DecodeString(signedTaskResponse.TaskResponse[2:])
+	if err != nil {
+		agg.logger.Error("Failed to get task_response_bytes", "err", err)
+		return TaskResponseDigestNotFoundError500
+	}
+
+	var taskResponse taskmanager.IFinalizerTaskManagerTaskResponse
+
+	parsedAbi, err := taskmanager.ContractFinalizerTaskManagerMetaData.GetAbi()
+	// TODO replace with dummy function?
+	inputParameters := parsedAbi.Methods["respondToTask"].Inputs
+	args := inputParameters[1:2]
+	unpacked, err := args.Unpack(task_response_bytes)
+	if err != nil {
+		agg.logger.Error("Failed to get task response", "err", err)
+		return TaskResponseDigestNotFoundError500
+	}
+	x := abi.ConvertType(unpacked[0], taskResponse)
+	cx, ok := x.(taskmanager.IFinalizerTaskManagerTaskResponse)
+	if !ok {
+		agg.logger.Error("Failed to get task response cx", "cx", cx)
+		return TaskResponseDigestNotFoundError500
+	}
+
+	taskResponse = cx
+
+	taskIndex := taskResponse.ReferenceTaskIndex
+	taskResponseDigest, err := core.GetTaskResponseDigest(&taskResponse)
 	if err != nil {
 		agg.logger.Error("Failed to get task response digest", "err", err)
 		return TaskResponseDigestNotFoundError500
@@ -97,7 +128,7 @@ func (agg *Aggregator) ProcessSignedTaskResponse(signedTaskResponse *SignedTaskR
 		agg.taskResponses[taskIndex] = make(map[sdktypes.TaskResponseDigest]taskmanager.IFinalizerTaskManagerTaskResponse)
 	}
 	if _, ok := agg.taskResponses[taskIndex][taskResponseDigest]; !ok {
-		agg.taskResponses[taskIndex][taskResponseDigest] = signedTaskResponse.TaskResponse
+		agg.taskResponses[taskIndex][taskResponseDigest] = taskResponse
 	}
 	agg.taskResponsesMu.Unlock()
 

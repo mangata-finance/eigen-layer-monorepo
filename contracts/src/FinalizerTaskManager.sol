@@ -13,6 +13,7 @@ import {BLSApkRegistry} from "@eigenlayer-middleware/src/BLSApkRegistry.sol";
 import {RegistryCoordinator} from "@eigenlayer-middleware/src/RegistryCoordinator.sol";
 import {BLSSignatureChecker, IRegistryCoordinator} from "@eigenlayer-middleware/src/BLSSignatureChecker.sol";
 import {OperatorStateRetriever} from "@eigenlayer-middleware/src/OperatorStateRetriever.sol";
+import "./IGaspMultiRollupServicePrimitives.sol";
 
 import "./IFinalizerTaskManager.sol";
 
@@ -44,20 +45,39 @@ contract FinalizerTaskManager is
     // mapping of task indices to hash of abi.encode(taskResponse, taskResponseMetadata)
     mapping(uint32 => bytes32) public allTaskResponses;
 
+    // mapping of task indices to hash of abi.encode(taskResponse, taskResponseMetadata)
+    mapping(uint32 => TaskStatus) public indexToTaskStatus;
+
+    uint32 public lastCompletedTaskNum;
+    uint32 public lastCompletedTaskCreatedBlock;
+    // uint32 lastCompletedTaskNum;
+    bytes public lastCompletedTaskQuorumNumbers;
+    uint32 public lastCompletedTaskQuorumThresholdPercentage;
+
     address public aggregator;
     address public generator;
 
-    bytes32 latestPendingStateHash;
+    bytes32 public latestPendingStateHash;
+
+    // DATA STRUCTURES
+    enum TaskStatus
+    {
+        // default is NOT_INITIALIZED
+        NOT_INITIALIZED,
+        INITIALIZED_BUT_NOT_COMPLETED,
+        CANCELLED,
+        COMPLETED
+    }
 
     /* MODIFIERS */
     modifier onlyAggregator() {
-        require(msg.sender == aggregator, "Aggregator must be the caller");
+        require(msg.sender == aggregator, "Auth0");
         _;
     }
 
     // onlyTaskGenerator is used to restrict createNewTask from only being called by a permissioned entity
     modifier onlyTaskGenerator() {
-        require(msg.sender == generator, "Task generator must be the caller");
+        require(msg.sender == generator, "Auth1");
         _;
     }
 
@@ -83,15 +103,33 @@ contract FinalizerTaskManager is
         external
         onlyTaskGenerator
     {
+        require(
+            lastCompletedTaskCreatedBlock != block.number && block.number != 0,
+            "Can't create a task in the same block as a completed task"
+        );
         // create a new task struct
         Task memory newTask;
+        newTask.taskNum = latestTaskNum;
         newTask.blockNumber = blockNumber;
         newTask.taskCreatedBlock = uint32(block.number);
         newTask.quorumThresholdPercentage = quorumThresholdPercentage;
         newTask.quorumNumbers = quorumNumbers;
+        newTask.lastCompletedTaskCreatedBlock = lastCompletedTaskCreatedBlock;
+        newTask.lastCompletedTaskQuorumNumbers = lastCompletedTaskQuorumNumbers;
+        newTask.lastCompletedTaskQuorumThresholdPercentage = lastCompletedTaskQuorumThresholdPercentage;
+
+        // Ensure new previous task was either cancelled or completed
+        // Here for now we auto cancel previous task if not completed
+        if (latestTaskNum > 0) {
+            uint32 lastTaskNum = latestTaskNum - 1;
+            if (indexToTaskStatus[lastTaskNum] == TaskStatus.INITIALIZED_BUT_NOT_COMPLETED){
+                indexToTaskStatus[lastTaskNum] = TaskStatus.CANCELLED;
+            }
+        }
 
         // store hash of task onchain, emit event, and increase taskNum
         allTaskHashes[latestTaskNum] = keccak256(abi.encode(newTask));
+        indexToTaskStatus[latestTaskNum] = TaskStatus.INITIALIZED_BUT_NOT_COMPLETED;
         emit NewTaskCreated(latestTaskNum, newTask);
         latestTaskNum = latestTaskNum + 1;
     }
@@ -100,7 +138,8 @@ contract FinalizerTaskManager is
     function respondToTask(
         Task calldata task,
         TaskResponse calldata taskResponse,
-        NonSignerStakesAndSignature memory nonSignerStakesAndSignature
+        NonSignerStakesAndSignature memory nonSignerStakesAndSignature,
+        IGaspMultiRollupServicePrimitives.NonSignerStakesAndSignatureForOldState memory NonSignerStakesAndSignatureForOldState
     ) external onlyAggregator {
         uint32 taskCreatedBlock = task.taskCreatedBlock;
         bytes calldata quorumNumbers = task.quorumNumbers;
@@ -113,6 +152,10 @@ contract FinalizerTaskManager is
         );
         // some logical checks
         require(
+            indexToTaskStatus[taskResponse.referenceTaskIndex] == TaskStatus.INITIALIZED_BUT_NOT_COMPLETED,
+            "Aggregator has already responded to the task"
+        );
+        require(
             allTaskResponses[taskResponse.referenceTaskIndex] == bytes32(0),
             "Aggregator has already responded to the task"
         );
@@ -120,6 +163,8 @@ contract FinalizerTaskManager is
             uint32(block.number) <= taskCreatedBlock + _TASK_RESPONSE_WINDOW_BLOCK,
             "Aggregator has responded to the task too late"
         );
+
+        // Maybe also redundantly check here that taskResponse.referenceTaskIndex == lastestTaskNum - 1 ( safe since createNewTask increments latestTaskNum and the only task that should be INITIALIZED_BUT_NOT_COMPLETED is the last created task)
 
         /* CHECKING SIGNATURES & WHETHER THRESHOLD IS MET OR NOT */
         // calculate message which operators signed
@@ -139,7 +184,7 @@ contract FinalizerTaskManager is
         allTaskResponses[taskResponse.referenceTaskIndex] = keccak256(abi.encode(taskResponse, taskResponseMetadata));
 
         // emitting event
-        emit TaskResponded(taskResponse, taskResponseMetadata);
+        emit TaskResponded(task.taskNum, taskResponse, taskResponseMetadata);
 
         // check that signatories own at least a threshold percentage of each quourm
         for (uint256 i = 0; i < quorumNumbers.length; i++) {
@@ -155,8 +200,13 @@ contract FinalizerTaskManager is
         }
 
         latestPendingStateHash = taskResponse.pendingStateHash;
+        indexToTaskStatus[taskResponse.referenceTaskIndex] == TaskStatus.COMPLETED;
+        lastCompletedTaskCreatedBlock = task.taskCreatedBlock;
+        lastCompletedTaskQuorumNumbers = task.quorumNumbers;
+        lastCompletedTaskQuorumThresholdPercentage = task.quorumThresholdPercentage;
+        lastCompletedTaskNum = task.taskNum;
         // emitting completed event
-        emit TaskCompleted(taskResponse.referenceTaskIndex, taskResponse.blockHash);
+        emit TaskCompleted(taskResponse.referenceTaskIndex, taskResponse.blockHash, taskResponse);
     }
 
     function taskNumber() external view returns (uint32) {
@@ -169,5 +219,8 @@ contract FinalizerTaskManager is
 
     function getLatestPendingStateHash() external view returns (bytes32) {
         return latestPendingStateHash;
+    }
+    
+    function dummyForOperatorStateInfoType(IGaspMultiRollupServicePrimitives.OperatorStateInfo calldata _operatorStateInfo) external view {
     }
 }

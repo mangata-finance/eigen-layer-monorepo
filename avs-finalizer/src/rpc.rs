@@ -4,7 +4,10 @@ use crate::{
 };
 use ark_ec::AffineRepr;
 use ark_ff::PrimeField;
-use bindings::shared_types::TaskResponse;
+use bindings::{
+    finalizer_task_manager::OperatorStateInfo,
+    shared_types::{Task, TaskResponse, *},
+};
 use ethers::abi::AbiEncode;
 use reqwest::Response;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
@@ -13,45 +16,21 @@ use reqwest_retry::{
     RetryTransientMiddleware, Retryable, RetryableStrategy,
 };
 use serde::{ser::SerializeStruct, Serialize};
+use sp_core::Bytes;
 use sp_runtime::traits::{Hash, Keccak256};
 use tracing::instrument;
 
 type Bytes32 = [u8; 32];
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "PascalCase")]
 struct SignedTaskResponse {
-    #[serde(rename = "TaskResponse")]
-    task_response: TaskResponseWire,
-    #[serde(rename = "BlsSignature")]
+    task_response: Bytes,
     bls_signature: BlsSignatureWire,
-    #[serde(rename = "OperatorId")]
     operator_id: Bytes32,
 }
 
-#[derive(Serialize)]
-struct TaskResponseWire {
-    #[serde(rename = "ReferenceTaskIndex")]
-    pub reference_task_index: u32,
-    #[serde(rename = "BlockHash")]
-    pub block_hash: Bytes32,
-    #[serde(rename = "StorageProofHash")]
-    pub storage_proof_hash: Bytes32,
-    #[serde(rename = "PendingStateHash")]
-    pub pending_state_hash: Bytes32,
-}
-
-impl From<TaskResponse> for TaskResponseWire {
-    fn from(value: TaskResponse) -> Self {
-        Self {
-            reference_task_index: value.reference_task_index,
-            block_hash: value.block_hash,
-            storage_proof_hash: value.storage_proof_hash,
-            pending_state_hash: value.pending_state_hash,
-        }
-    }
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct BlsSignatureWire {
     g1_point: G1PointWire,
 }
@@ -67,6 +46,7 @@ impl From<BlsSignature> for BlsSignatureWire {
     }
 }
 
+#[derive(Debug)]
 struct G1PointWire {
     x: <PrivateKey as PrimeField>::BigInt,
     y: <PrivateKey as PrimeField>::BigInt,
@@ -138,7 +118,7 @@ fn create_response(task: TaskResponse, keypair: &BlsKeypair) -> eyre::Result<Sig
 
     Ok(SignedTaskResponse {
         bls_signature: sig.into(),
-        task_response: task.into(),
+        task_response: task.encode().into(),
         operator_id: keypair.operator_id().to_fixed_bytes(),
     })
 }
