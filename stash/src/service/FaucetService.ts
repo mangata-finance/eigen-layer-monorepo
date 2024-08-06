@@ -82,6 +82,7 @@ const send = async (
   const account = privateKeyToAccount(
     `0x${process.env.ORIGIN_ACCOUNT_PRIVATE_KEY}`
   )
+  logger.info('Origin account', account)
   logger.info('Sending tokens...')
   const transaction: SimulateTransactionRequest = {
     client,
@@ -96,6 +97,7 @@ const send = async (
 }
 
 const simulateTransaction = async (transaction: SimulateTransactionRequest) => {
+  logger.info('Transaction details', transaction)
   const { request } = await transaction.client.simulateContract({
     account: transaction.account,
     chain: holesky,

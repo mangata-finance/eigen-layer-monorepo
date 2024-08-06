@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - chore/add_logging
     paths:
       - "stash/**/*"
       - ".github/**/rollup-dev**"
