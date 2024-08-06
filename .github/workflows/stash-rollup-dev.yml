@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - chore/add_params_to_yamls
     paths:
       - "stash/**/*"
       - ".github/**/rollup-dev**"
